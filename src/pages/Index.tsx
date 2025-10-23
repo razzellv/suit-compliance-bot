@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { ComplianceUploader } from "@/components/ComplianceUploader";
 import { ComplianceReport } from "@/components/ComplianceReport";
-import { Settings, Database } from "lucide-react";
+import { AIComplianceAnalysis } from "@/components/AIComplianceAnalysis";
+import { Settings, Database, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   validateLogs,
   calculateComplianceScore,
@@ -11,14 +13,18 @@ import {
 
 const Index = () => {
   const [reportData, setReportData] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     toast.success("File uploaded successfully", {
       description: `Processing ${file.name}...`,
     });
 
+    setIsAnalyzing(true);
+
     // Simulate processing and validation
-    setTimeout(() => {
+    setTimeout(async () => {
       // Mock data for demonstration
       const mockLogs = [
         { steamPressure: 145, stackTemp: 612, waterLevel: "Normal" },
@@ -57,9 +63,39 @@ const Index = () => {
       };
 
       setReportData(mockReport);
-      toast.success("Analysis complete", {
-        description: `Compliance score: ${score}%`,
-      });
+
+      // Call AI analysis
+      try {
+        toast.info("Running AI analysis...");
+        
+        const { data: analysisData, error } = await supabase.functions.invoke(
+          "analyze-compliance",
+          {
+            body: {
+              findings: mockReport.findings,
+              systemType: "Boiler",
+              dateRange: mockReport.dateRange,
+            },
+          }
+        );
+
+        if (error) {
+          console.error("AI analysis error:", error);
+          toast.error("AI analysis failed", {
+            description: error.message || "Please try again",
+          });
+        } else {
+          setAiAnalysis(analysisData);
+          toast.success("AI analysis complete", {
+            description: `Detailed compliance report generated`,
+          });
+        }
+      } catch (err) {
+        console.error("Error calling AI function:", err);
+        toast.error("Failed to analyze compliance data");
+      } finally {
+        setIsAnalyzing(false);
+      }
     }, 2000);
   };
 
@@ -123,7 +159,23 @@ const Index = () => {
               </div>
             </div>
           ) : (
-            <ComplianceReport data={reportData} />
+            <div className="space-y-8">
+              <ComplianceReport data={reportData} />
+              
+              {isAnalyzing && (
+                <div className="flex items-center justify-center gap-3 p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <span className="text-lg">Running AI compliance analysis...</span>
+                </div>
+              )}
+              
+              {aiAnalysis && !isAnalyzing && (
+                <AIComplianceAnalysis 
+                  issues={aiAnalysis.issues} 
+                  summary={aiAnalysis.summary} 
+                />
+              )}
+            </div>
           )}
         </div>
       </main>
