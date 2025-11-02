@@ -2,9 +2,12 @@ import { useState } from "react";
 import { ComplianceUploader } from "@/components/ComplianceUploader";
 import { ComplianceReport } from "@/components/ComplianceReport";
 import { AIComplianceAnalysis } from "@/components/AIComplianceAnalysis";
-import { Settings, Database, Loader2 } from "lucide-react";
+import { Settings, Database, Loader2, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { postToUnifiedAPI, triggerMakeWebhook } from "@/utils/apiClient";
+import { Link } from "react-router-dom";
 import {
   validateLogs,
   calculateComplianceScore,
@@ -86,8 +89,41 @@ const Index = () => {
           });
         } else {
           setAiAnalysis(analysisData);
+          
+          // Post to unified API
+          const apiPayload = {
+            Report_ID: `NS-COMP-${Date.now()}`,
+            Facility: mockReport.system,
+            Auditor: "AI-Compliance-Bot",
+            Date: new Date().toISOString(),
+            Compliance_Issues: mockReport.findings,
+            Facility_Metrics: {
+              Energy_kWh: 3420,
+              Water_Gal: 212,
+              Runtime_Hours: 10,
+              Waste_lb: 14,
+              Efficiency_Score: 91
+            },
+            SummaryMetrics: {
+              Total_Issues: mockReport.findings.length,
+              Critical_Count: mockReport.findings.filter((f: any) => f.severity === "Critical").length,
+              Compliance_Score: mockReport.complianceScore,
+              Facility_Score: 92,
+              Overall_Priority: mockReport.status === "critical" ? "High" : mockReport.status === "review" ? "Medium" : "Low"
+            },
+            AI_Analysis: analysisData,
+            Export: {
+              Send_to_Portal: true,
+              Generate_PDF: true,
+              Send_Email: true
+            }
+          };
+          
+          await postToUnifiedAPI(apiPayload);
+          await triggerMakeWebhook("compliance", apiPayload);
+          
           toast.success("AI analysis complete", {
-            description: `Detailed compliance report generated`,
+            description: `Report synced to dashboard`,
           });
         }
       } catch (err) {
@@ -113,9 +149,17 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">Compliance AI Checker</p>
               </div>
             </div>
-            <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-              <Settings className="h-5 w-5 text-muted-foreground" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Link to="/virtuous">
+                <Button variant="outline" size="sm">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Virtuous Analyzer
+                </Button>
+              </Link>
+              <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                <Settings className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
