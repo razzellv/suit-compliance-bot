@@ -18,16 +18,100 @@ const Index = () => {
   const [reportData, setReportData] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const handleFileUpload = async (file: File) => {
+    setUploadedFile(file);
     toast.success("File uploaded successfully", {
       description: `Processing ${file.name}...`,
     });
 
     setIsAnalyzing(true);
 
-    // Simulate processing and validation
-    setTimeout(async () => {
+    try {
+      let analysisPayload: any = {
+        systemType: "Multi-System Facility",
+        dateRange: new Date().toISOString()
+      };
+
+      // Check if file is an image
+      if (file.type.startsWith('image/')) {
+        toast.info("Analyzing equipment image with AI...");
+        
+        // Convert image to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        const base64Image = await base64Promise;
+        analysisPayload.images = [base64Image];
+        analysisPayload.findings = null;
+        
+        // Call AI analysis directly for images
+        const { data: analysisData, error } = await supabase.functions.invoke(
+          "analyze-compliance",
+          { body: analysisPayload }
+        );
+
+        if (error) {
+          console.error("AI analysis error:", error);
+          toast.error("Image analysis failed", {
+            description: error.message || "Please try again",
+          });
+          setIsAnalyzing(false);
+          return;
+        }
+        
+        // Display results
+        setAiAnalysis(analysisData);
+        
+        // Create report data from image analysis
+        const imageReport = {
+          system: analysisData.summary?.equipmentType || "Equipment",
+          dateRange: new Date().toLocaleDateString(),
+          complianceScore: analysisData.summary?.complianceScore || 0,
+          findings: analysisData.issues?.map((issue: any) => ({
+            field: issue.problemDetected,
+            value: issue.notes || "See image",
+            flag: issue.severity === "Critical" ? "Critical" : issue.severity === "Severe" ? "Above Limit" : "Needs Attention",
+            severity: issue.severity,
+          })) || [],
+          recommendedActions: analysisData.issues?.flatMap((issue: any) => issue.recommendedActions) || [],
+          status: analysisData.summary?.overallPriority === "High" ? "critical" : analysisData.summary?.overallPriority === "Medium" ? "review" : "compliant",
+        };
+        
+        setReportData(imageReport);
+        
+        // Post to unified API
+        const apiPayload = {
+          Report_ID: `NS-COMP-${Date.now()}`,
+          Facility: imageReport.system,
+          Auditor: "AI-Image-Analysis-Bot",
+          Date: new Date().toISOString(),
+          Compliance_Issues: imageReport.findings,
+          AI_Analysis: analysisData,
+          Export: {
+            Send_to_Portal: true,
+            Generate_PDF: true,
+            Send_Email: true
+          }
+        };
+        
+        await postToUnifiedAPI(apiPayload);
+        await triggerMakeWebhook("compliance", apiPayload);
+        
+        toast.success("Image analysis complete", {
+          description: `Compliance report generated`,
+        });
+        
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // For non-image files, use existing flow
       // Mock data for demonstration
       const mockLogs = [
         { steamPressure: 145, stackTemp: 612, waterLevel: "Normal" },
@@ -68,26 +152,27 @@ const Index = () => {
       setReportData(mockReport);
 
       // Call AI analysis
-      try {
-        toast.info("Running AI analysis...");
-        
-        const { data: analysisData, error } = await supabase.functions.invoke(
-          "analyze-compliance",
-          {
-            body: {
-              findings: mockReport.findings,
-              systemType: "Boiler",
-              dateRange: mockReport.dateRange,
-            },
-          }
-        );
+      toast.info("Running AI analysis...");
+      
+      const { data: analysisData, error } = await supabase.functions.invoke(
+        "analyze-compliance",
+        {
+          body: {
+            findings: mockReport.findings,
+            systemType: "Boiler",
+            dateRange: mockReport.dateRange,
+          },
+        }
+      );
 
         if (error) {
           console.error("AI analysis error:", error);
-          toast.error("AI analysis failed", {
-            description: error.message || "Please try again",
-          });
-        } else {
+        toast.error("AI analysis failed", {
+          description: error.message || "Please try again",
+        });
+        setIsAnalyzing(false);
+        return;
+      } else {
           setAiAnalysis(analysisData);
           
           // Post to unified API
@@ -122,17 +207,17 @@ const Index = () => {
           await postToUnifiedAPI(apiPayload);
           await triggerMakeWebhook("compliance", apiPayload);
           
-          toast.success("AI analysis complete", {
-            description: `Report synced to dashboard`,
-          });
-        }
-      } catch (err) {
-        console.error("Error calling AI function:", err);
-        toast.error("Failed to analyze compliance data");
-      } finally {
-        setIsAnalyzing(false);
+        toast.success("AI analysis complete", {
+          description: `Report synced to dashboard`,
+        });
       }
-    }, 2000);
+      
+      setIsAnalyzing(false);
+    } catch (err) {
+      console.error("Error in file upload:", err);
+      toast.error("Failed to process file");
+      setIsAnalyzing(false);
+    }
   };
 
   return (

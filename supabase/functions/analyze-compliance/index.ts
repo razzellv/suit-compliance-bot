@@ -11,16 +11,71 @@ serve(async (req) => {
   }
 
   try {
-    const { findings, systemType, dateRange } = await req.json();
+    const { findings, systemType, dateRange, images } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Analyzing compliance data:", { systemType, findingsCount: findings.length });
+    const isImageAnalysis = images && images.length > 0;
+    console.log("Analyzing compliance data:", { 
+      systemType, 
+      findingsCount: findings?.length || 0,
+      imageCount: images?.length || 0,
+      analysisType: isImageAnalysis ? "image" : "text"
+    });
 
-    const systemPrompt = `You are a senior facility compliance auditor from Nexum Suum. Analyze the log or user-submitted compliance data with precision and professionalism.
+    const systemPrompt = isImageAnalysis 
+      ? `You are a Facility Compliance & Diagnostic AI Auditor for Nexum Suum.
+
+Purpose:
+Analyze each uploaded photo for visible or measurable compliance risks in mechanical and HVAC systems.
+You specialize in interpreting images from boilers, chillers, compressors, pumps, and facility rooms.
+
+📸 INPUT GUIDELINES:
+- Detect equipment type, nameplate text, gauges, corrosion, soot, leaks, flame color, and visual conditions.
+- Use OCR if text, labels, or readings are visible.
+- Cross-reference detected visuals with standard safety and efficiency limits.
+
+📏 EVALUATION LOGIC:
+• If gauges, thermometers, or digital readouts are visible → extract reading and compare to normal range:
+  - Boiler stack temperature normal: 350°F–550°F
+  - Steam pressure: 60–120 psi (medium pressure)
+  - Water hardness ppm: 0–50 ppm
+  - Chiller discharge temp: 90–120°F typical
+
+• If soot, rust, corrosion, or flame discoloration is detected:
+  → flag = "Above Limit" or "Needs Attention"
+
+• Severity Scale:
+  - Low (cleaning or tune-up)
+  - Moderate (inspection needed)
+  - Severe (significant issue)
+  - Critical (shutdown or unsafe)
+
+• Compliance Score:
+  - Start at 100%.
+  - Deduct 5–15% per flagged issue.
+  - Report as integer percentage.
+
+For each image, identify:
+1. Equipment Detected: What equipment type
+2. Observed Condition: Visual assessment
+3. Field Value: Any readings visible (gauges, displays, etc.)
+4. Flag: Status assessment
+5. Severity: Low, Moderate, Severe, or Critical
+6. Possible Causes: List potential root causes
+7. Recommended Actions: Specific actions needed
+8. Monitoring Suggestions: How to track this issue
+9. Estimated Risk Cost: Dollar amount
+10. Confidence: Your confidence level (0.0-1.0)
+
+Return a structured compliance report.
+If image is unreadable or unclear, note that clearly in the analysis.
+
+Tagline: Nexum Suum — Compliance through Clarity.`
+      : `You are a senior facility compliance auditor from Nexum Suum. Analyze the log or user-submitted compliance data with precision and professionalism.
 
 For each flagged item, provide:
 1. Problem Detected: Short phrase (e.g., 'Steam Pressure Low')
@@ -39,12 +94,43 @@ Create a final summary section:
 
 Tone: Precise, professional, helpful — like a top-tier facilities compliance firm. Explain why each flag matters and what improvement looks like.`;
 
-    const userPrompt = `Analyze this ${systemType} system compliance data from ${dateRange}:
+    let userContent: any;
+    
+    if (isImageAnalysis) {
+      // Build multimodal content with text + images
+      const contentParts: any[] = [
+        {
+          type: "text",
+          text: `Analyze these facility equipment images for compliance issues.
+
+${systemType ? `System Type: ${systemType}` : ''}
+${dateRange ? `Date Range: ${dateRange}` : ''}
+${findings ? `Additional Context: ${JSON.stringify(findings, null, 2)}` : ''}
+
+Provide detailed compliance analysis for each visible issue in the images.`
+        }
+      ];
+      
+      // Add all images
+      images.forEach((img: string) => {
+        contentParts.push({
+          type: "image_url",
+          image_url: {
+            url: img
+          }
+        });
+      });
+      
+      userContent = contentParts;
+    } else {
+      // Text-only analysis
+      userContent = `Analyze this ${systemType} system compliance data from ${dateRange}:
 
 Findings:
 ${findings.map((f: any) => `- ${f.field}: ${f.value} (${f.flag}) - Severity: ${f.severity}`).join('\n')}
 
 Provide detailed analysis for each issue and an overall summary.`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -56,7 +142,7 @@ Provide detailed analysis for each issue and an overall summary.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
+          { role: "user", content: userContent }
         ],
         tools: [
           {
