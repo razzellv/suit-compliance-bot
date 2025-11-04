@@ -59,11 +59,16 @@ export const fetchViolationTypes = async () => {
     console.error("Error fetching violation types:", error);
     // Fallback data
     return [
-      { type: "Safety PPE Non-Compliance", percent: 0.05 },
-      { type: "Late Inspection Log", percent: 0.03 },
-      { type: "Unauthorized Equipment Use", percent: 0.06 },
-      { type: "Missed Training", percent: 0.04 },
-      { type: "Procedure Violation", percent: 0.05 },
+      { type: "Safety Violation", percent: 0.12 },
+      { type: "Compliance Violation", percent: 0.09 },
+      { type: "Ethical Misconduct", percent: 0.08 },
+      { type: "Negligence (Minor)", percent: 0.05 },
+      { type: "Negligence (Major)", percent: 0.09 },
+      { type: "Equipment Damage", percent: 0.07 },
+      { type: "Unauthorized Access", percent: 0.08 },
+      { type: "Data Entry Falsification", percent: 0.07 },
+      { type: "Absenteeism / Late Shift", percent: 0.04 },
+      { type: "Supervisor Misconduct", percent: 0.09 },
     ];
   }
 };
