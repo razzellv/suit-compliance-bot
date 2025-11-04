@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { ViolationForm } from "@/components/ViolationForm";
 import { RiskAnalysis } from "@/components/RiskAnalysis";
+import { EmployeeLookup } from "@/components/EmployeeLookup";
+import { EmployeeProfile } from "@/components/EmployeeProfile";
 import { Shield, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { postToUnifiedAPI, triggerMakeWebhook } from "@/utils/apiClient";
 import { Link } from "react-router-dom";
 
 const VirtuousAnalyzer = () => {
   const [analysisData, setAnalysisData] = useState<any>(null);
+  const [employeeProfile, setEmployeeProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (data: any) => {
@@ -89,51 +93,74 @@ const VirtuousAnalyzer = () => {
 
       <main className="container mx-auto px-6 py-12">
         <div className="max-w-6xl mx-auto">
-          {!analysisData ? (
-            <div>
+          <Tabs defaultValue="new-analysis" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="new-analysis">New Analysis</TabsTrigger>
+              <TabsTrigger value="lookup">Employee Lookup</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="new-analysis">
+              {!analysisData ? (
+                <div>
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold mb-3 text-neon">
+                      Employee Violation & Risk Assessment
+                    </h2>
+                    <p className="text-muted-foreground max-w-2xl mx-auto">
+                      Enter employee violation data to calculate risk scores, ethical standing,
+                      and generate comprehensive accountability reports
+                    </p>
+                  </div>
+                  
+                  <ViolationForm onSubmit={handleSubmit} isLoading={isLoading} />
+                  
+                  <div className="mt-8 p-6 bg-card/50 rounded-lg border border-border">
+                    <h3 className="font-semibold mb-4 text-primary">Risk Categories:</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">✅</span>
+                        <span><strong>&lt;0.35:</strong> Good Standing</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">⚠️</span>
+                        <span><strong>0.35–0.68:</strong> Warning</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🟠</span>
+                        <span><strong>0.69–1.04:</strong> Medium Risk (Write-Up)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🔴</span>
+                        <span><strong>≥1.05:</strong> High Risk (Suspend/Review)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <Button onClick={() => setAnalysisData(null)} variant="outline">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    New Analysis
+                  </Button>
+                  <RiskAnalysis data={analysisData} onExport={handleExport} />
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="lookup" className="space-y-6">
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold mb-3 text-neon">
-                  Employee Violation & Risk Assessment
+                  Employee Risk Profile Lookup
                 </h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Enter employee violation data to calculate risk scores, ethical standing,
-                  and generate comprehensive accountability reports
+                  Search for an employee by ID to view their current risk profile and compliance status
                 </p>
               </div>
               
-              <ViolationForm onSubmit={handleSubmit} isLoading={isLoading} />
-              
-              <div className="mt-8 p-6 bg-card/50 rounded-lg border border-border">
-                <h3 className="font-semibold mb-4 text-primary">Risk Categories:</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">✅</span>
-                    <span><strong>&lt;0.35:</strong> Good Standing</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">⚠️</span>
-                    <span><strong>0.35–0.68:</strong> Warning</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">🟠</span>
-                    <span><strong>0.69–1.04:</strong> Medium Risk (Write-Up)</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">🔴</span>
-                    <span><strong>≥1.05:</strong> High Risk (Suspend/Review)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <Button onClick={() => setAnalysisData(null)} variant="outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                New Analysis
-              </Button>
-              <RiskAnalysis data={analysisData} onExport={handleExport} />
-            </div>
-          )}
+              <EmployeeLookup onProfileFound={setEmployeeProfile} />
+              {employeeProfile && <EmployeeProfile profile={employeeProfile} />}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 

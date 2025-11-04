@@ -1,4 +1,5 @@
 const UNIFIED_API_URL = "https://script.google.com/macros/s/AKfycbyYy6ZMsB1gNMEpAgTokVRv5vLJSr-uSRopkxX4968jjUrVdRfQtRLm6mc85R4apJMHww/exec";
+const RISK_PROFILE_API_URL = "https://script.google.com/macros/s/AKfycbzPSUZ2sNY6EEE2aM5oDWin_7MJ7f78UZlH2ameAwBdfEe6qBeqggcvyM8SUuNtax9S/exec";
 
 const MAKE_WEBHOOKS = {
   compliance: "https://hook.us2.make.com/gpa1hpqkfpaobwykun7pc5sn91v1pbn5",
@@ -34,6 +35,22 @@ export const triggerMakeWebhook = async (webhookType: keyof typeof MAKE_WEBHOOKS
     return response.ok;
   } catch (error) {
     console.error(`Error triggering ${webhookType} webhook:`, error);
+    throw error;
+  }
+};
+
+export const fetchEmployeeRiskProfile = async (employeeId: string) => {
+  try {
+    const response = await fetch(RISK_PROFILE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ Employee_ID: employeeId }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching employee risk profile:", error);
     throw error;
   }
 };
