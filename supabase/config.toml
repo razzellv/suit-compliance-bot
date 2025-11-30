@@ -2,3 +2,6 @@ project_id = "ufbuzxvywfdawkscdljn"
 
 [functions.analyze-compliance]
 verify_jwt = false
+
+[functions.analyze-compliance-issue]
+verify_jwt = false

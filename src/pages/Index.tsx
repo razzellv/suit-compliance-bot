@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ComplianceUploader } from "@/components/ComplianceUploader";
 import { ComplianceReport } from "@/components/ComplianceReport";
 import { AIComplianceAnalysis } from "@/components/AIComplianceAnalysis";
-import { Settings, Database, Loader2, Shield } from "lucide-react";
+import { Settings, Database, Loader2, Shield, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -235,6 +235,12 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link to="/compliance">
+                <Button variant="outline" size="sm">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Compliance Assistant
+                </Button>
+              </Link>
               <Link to="/virtuous">
                 <Button variant="outline" size="sm">
                   <Shield className="h-4 w-4 mr-2" />
