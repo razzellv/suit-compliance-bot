@@ -66,26 +66,32 @@ export const fetchViolationTypes = async () => {
     const rows = text.split("\n").slice(1); // Skip header
     
     return rows.map(row => {
-      const [type, percent] = row.split(",");
+      const columns = row.split(",").map(col => col?.trim());
       return {
-        type: type?.trim(),
-        percent: parseFloat(percent) || 0
+        type: columns[0] || "",
+        code: columns[1] || "",
+        description: columns[2] || "",
+        severity: parseFloat(columns[3]) || 0,
+        category: columns[4] || "",
+        notes: columns[5] || "",
+        // Maintain backward compatibility
+        percent: parseFloat(columns[3]) || 0
       };
     }).filter(v => v.type);
   } catch (error) {
     console.error("Error fetching violation types:", error);
-    // Fallback data
+    // Fallback data with enhanced fields
     return [
-      { type: "Safety Violation", percent: 0.12 },
-      { type: "Compliance Violation", percent: 0.09 },
-      { type: "Ethical Misconduct", percent: 0.08 },
-      { type: "Negligence (Minor)", percent: 0.05 },
-      { type: "Negligence (Major)", percent: 0.09 },
-      { type: "Equipment Damage", percent: 0.07 },
-      { type: "Unauthorized Access", percent: 0.08 },
-      { type: "Data Entry Falsification", percent: 0.07 },
-      { type: "Absenteeism / Late Shift", percent: 0.04 },
-      { type: "Supervisor Misconduct", percent: 0.09 },
+      { type: "Safety Violation", code: "SAF-001", description: "Safety protocol breach", severity: 0.12, category: "Safety", notes: "Requires immediate review", percent: 0.12 },
+      { type: "Compliance Violation", code: "COM-001", description: "Regulatory non-compliance", severity: 0.09, category: "Compliance", notes: "Document and report", percent: 0.09 },
+      { type: "Ethical Misconduct", code: "ETH-001", description: "Ethical standards breach", severity: 0.08, category: "Ethics", notes: "Review required", percent: 0.08 },
+      { type: "Negligence (Minor)", code: "NEG-001", description: "Minor negligence incident", severity: 0.05, category: "Negligence", notes: "Warning issued", percent: 0.05 },
+      { type: "Negligence (Major)", code: "NEG-002", description: "Major negligence incident", severity: 0.09, category: "Negligence", notes: "Formal review", percent: 0.09 },
+      { type: "Equipment Damage", code: "EQP-001", description: "Equipment misuse or damage", severity: 0.07, category: "Equipment", notes: "Inspect equipment", percent: 0.07 },
+      { type: "Unauthorized Access", code: "SEC-001", description: "Unauthorized area access", severity: 0.08, category: "Security", notes: "Security review", percent: 0.08 },
+      { type: "Data Entry Falsification", code: "DAT-001", description: "False data entry", severity: 0.07, category: "Data", notes: "Audit required", percent: 0.07 },
+      { type: "Absenteeism / Late Shift", code: "ATT-001", description: "Attendance issues", severity: 0.04, category: "Attendance", notes: "Track pattern", percent: 0.04 },
+      { type: "Supervisor Misconduct", code: "SUP-001", description: "Supervisory misconduct", severity: 0.09, category: "Management", notes: "HR escalation", percent: 0.09 },
     ];
   }
 };
