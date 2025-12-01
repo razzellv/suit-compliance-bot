@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, DollarSign, TrendingUp, Shield, FileText, Send, Mail } from "lucide-react";
+import { AlertTriangle, DollarSign, TrendingUp, Shield, FileText, Send, Mail, Wrench, Package } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 interface RiskAnalysisProps {
   data: any;
@@ -14,9 +15,7 @@ export const RiskAnalysis = ({ data, onExport }: RiskAnalysisProps) => {
     switch (category) {
       case "Good Standing":
         return "text-success border-success/50 bg-success/10";
-      case "Warning":
-        return "text-warning border-warning/50 bg-warning/10";
-      case "Medium Risk":
+      case "Moderate Risk":
         return "text-warning border-warning/50 bg-warning/20";
       case "High Risk":
       case "Critical":
@@ -28,9 +27,9 @@ export const RiskAnalysis = ({ data, onExport }: RiskAnalysisProps) => {
 
   const getRiskIcon = (category: string) => {
     if (category === "Good Standing") return "✅";
-    if (category === "Warning") return "⚠️";
-    if (category === "Medium Risk") return "🟠";
-    return "🔴";
+    if (category === "Moderate Risk") return "⚠️";
+    if (category === "High Risk") return "🔴";
+    return "⚠️";
   };
 
   return (
@@ -65,9 +64,9 @@ export const RiskAnalysis = ({ data, onExport }: RiskAnalysisProps) => {
             <div className="text-2xl font-bold">{data.Total_Violations}</div>
           </div>
           <div className="bg-card/50 p-4 rounded-lg border border-border">
-            <div className="text-sm text-muted-foreground mb-1">Violation %</div>
+            <div className="text-sm text-muted-foreground mb-1">Avg Severity</div>
             <div className="text-2xl font-bold text-warning">
-              {(data["Total_Violation_%"] * 100).toFixed(1)}%
+              {(data.Average_Severity * 100).toFixed(1)}%
             </div>
           </div>
           <div className="bg-card/50 p-4 rounded-lg border border-border">
@@ -77,9 +76,9 @@ export const RiskAnalysis = ({ data, onExport }: RiskAnalysisProps) => {
             </div>
           </div>
           <div className="bg-card/50 p-4 rounded-lg border border-border">
-            <div className="text-sm text-muted-foreground mb-1">Risk Cost</div>
+            <div className="text-sm text-muted-foreground mb-1">Risk Cost Impact</div>
             <div className="text-2xl font-bold text-destructive">
-              ${data.Salary_vs_Risk_Index.toLocaleString()}
+              ${data.Risk_Cost_Impact?.toLocaleString() || '0'}
             </div>
           </div>
         </div>
@@ -104,9 +103,14 @@ export const RiskAnalysis = ({ data, onExport }: RiskAnalysisProps) => {
           {data.Violations.map((violation: any, index: number) => (
             <div key={index} className="bg-card/50 p-4 rounded-lg border border-border">
               <div className="flex justify-between items-start mb-2">
-                <h5 className="font-semibold">{violation.Type}</h5>
+                <div>
+                  <h5 className="font-semibold">{violation.Type}</h5>
+                  {violation.Code && (
+                    <p className="text-xs text-muted-foreground">{violation.Code} • {violation.Category}</p>
+                  )}
+                </div>
                 <Badge variant="outline" className="text-warning border-warning/50">
-                  {(violation.Percent * 100).toFixed(1)}%
+                  Severity: {(violation.Percent * 100).toFixed(0)}%
                 </Badge>
               </div>
               {violation.Description && (
@@ -116,6 +120,61 @@ export const RiskAnalysis = ({ data, onExport }: RiskAnalysisProps) => {
           ))}
         </div>
       </Card>
+
+      {data.Work_Order_Suggestions && data.Work_Order_Suggestions.length > 0 && (
+        <Card className="p-6 border-primary/20">
+          <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-primary" />
+            Work Order Recommendations
+          </h4>
+          <div className="space-y-3">
+            {data.Work_Order_Suggestions.map((wo: any, index: number) => (
+              <div key={index} className="bg-card/50 p-4 rounded-lg border border-border">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h5 className="font-semibold">{wo.violation}</h5>
+                    <p className="text-xs text-muted-foreground">{wo.code}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="outline">{wo.department}</Badge>
+                    <Badge className={
+                      wo.priority === "High" ? "bg-destructive" :
+                      wo.priority === "Medium" ? "bg-warning" : "bg-success"
+                    }>
+                      {wo.priority}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">{wo.action}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {data.Equipment_Intelligence && data.Equipment_Intelligence.length > 0 && (
+        <Card className="p-6 border-primary/20">
+          <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            Equipment Intelligence & ATI Recommendations
+          </h4>
+          <div className="space-y-4">
+            {data.Equipment_Intelligence.map((eq: any, index: number) => (
+              <div key={index} className="bg-card/50 p-4 rounded-lg border border-border">
+                <h5 className="font-semibold mb-3">{eq.violation}</h5>
+                <ul className="space-y-2">
+                  {eq.suggestions.map((suggestion: string, sIndex: number) => (
+                    <li key={sIndex} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary mt-0.5">→</span>
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="p-6 border-primary/20">
         <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">

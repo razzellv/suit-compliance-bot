@@ -14,10 +14,22 @@ import {
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { fetchViolationTypes } from "@/utils/apiClient";
 
+interface ViolationData {
+  type: string;
+  code: string;
+  description: string;
+  severity: number;
+  category: string;
+  notes: string;
+  percent: number;
+}
+
 interface Violation {
   type: string;
+  code: string;
   percent: number;
   description: string;
+  category: string;
 }
 
 interface ViolationFormProps {
@@ -26,9 +38,9 @@ interface ViolationFormProps {
 }
 
 export const ViolationForm = ({ onSubmit, isLoading }: ViolationFormProps) => {
-  const [violationTypes, setViolationTypes] = useState<{ type: string; percent: number }[]>([]);
+  const [violationTypes, setViolationTypes] = useState<ViolationData[]>([]);
   const [violations, setViolations] = useState<Violation[]>([
-    { type: "", percent: 0, description: "" }
+    { type: "", code: "", percent: 0, description: "", category: "" }
   ]);
   const [employeeData, setEmployeeData] = useState({
     employeeId: "",
@@ -46,7 +58,7 @@ export const ViolationForm = ({ onSubmit, isLoading }: ViolationFormProps) => {
   }, []);
 
   const addViolation = () => {
-    setViolations([...violations, { type: "", percent: 0, description: "" }]);
+    setViolations([...violations, { type: "", code: "", percent: 0, description: "", category: "" }]);
   };
 
   const removeViolation = (index: number) => {
@@ -57,10 +69,17 @@ export const ViolationForm = ({ onSubmit, isLoading }: ViolationFormProps) => {
     const updated = [...violations];
     (updated[index] as any)[field] = value;
     
+    // Auto-populate all fields when violation type is selected
     if (field === "type") {
       const selected = violationTypes.find(v => v.type === value);
       if (selected) {
-        updated[index].percent = selected.percent;
+        updated[index].code = selected.code;
+        updated[index].percent = selected.severity;
+        updated[index].category = selected.category;
+        // Pre-fill description if not already entered
+        if (!updated[index].description) {
+          updated[index].description = selected.description;
+        }
       }
     }
     
@@ -70,14 +89,51 @@ export const ViolationForm = ({ onSubmit, isLoading }: ViolationFormProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const totalViolationPercent = violations.reduce((sum, v) => sum + v.percent, 0);
-    const severityScore = Math.min(totalViolationPercent * 5, 1);
+    // Calculate total risk using severity scores from Google Sheet
+    const totalSeverity = violations.reduce((sum, v) => sum + v.percent, 0);
+    const avgSeverity = violations.length > 0 ? totalSeverity / violations.length : 0;
     const salary = parseFloat(employeeData.salary) || 0;
     
+    // Risk classification based on user requirements
     let riskCategory = "Good Standing";
-    if (totalViolationPercent >= 1.05) riskCategory = "High Risk";
-    else if (totalViolationPercent >= 0.69) riskCategory = "Medium Risk";
-    else if (totalViolationPercent >= 0.35) riskCategory = "Warning";
+    if (avgSeverity > 0.65) riskCategory = "High Risk";
+    else if (avgSeverity >= 0.35) riskCategory = "Moderate Risk";
+    
+    // Generate work order suggestions based on violations
+    const workOrderSuggestions = violations.map(v => {
+      const vType = violationTypes.find(vt => vt.type === v.type);
+      let priority = "Medium";
+      let department = "General";
+      
+      if (v.percent > 0.65) priority = "High";
+      else if (v.percent < 0.35) priority = "Low";
+      
+      if (v.category.includes("Equipment")) department = "Maintenance";
+      else if (v.category.includes("Safety")) department = "EHS";
+      else if (v.category.includes("Compliance")) department = "Compliance";
+      
+      return {
+        violation: v.type,
+        code: v.code,
+        priority,
+        department,
+        action: vType?.notes || "Review and correct",
+        category: v.category
+      };
+    });
+    
+    // Equipment intelligence for equipment-related violations
+    const equipmentSuggestions = violations
+      .filter(v => v.category.includes("Equipment"))
+      .map(v => ({
+        violation: v.type,
+        suggestions: [
+          "Schedule equipment inspection",
+          "Review maintenance logs",
+          "Consider retrofit/replacement if pattern persists",
+          "Implement ATI (Analyze → Tune → Improve) protocol"
+        ]
+      }));
     
     const data = {
       Employee_ID: employeeData.employeeId,
@@ -85,20 +141,24 @@ export const ViolationForm = ({ onSubmit, isLoading }: ViolationFormProps) => {
       Department: employeeData.department,
       Violations: violations.map(v => ({
         Type: v.type,
+        Code: v.code,
         Percent: v.percent,
-        Description: v.description
+        Description: v.description,
+        Category: v.category
       })),
       Total_Violations: violations.length,
-      "Total_Violation_%": totalViolationPercent,
-      Severity_Score: severityScore,
+      Average_Severity: avgSeverity,
+      Severity_Score: avgSeverity,
       Risk_Category: riskCategory,
       Salary: salary,
-      Salary_vs_Risk_Index: totalViolationPercent * salary,
-      Ethical_Integrity_Index: 100 - (severityScore * 100),
+      Risk_Cost_Impact: avgSeverity * salary,
+      Ethical_Integrity_Index: (1 - avgSeverity) * 100,
       Supervisor: employeeData.supervisor,
       Facility: employeeData.facility,
       Date: new Date(employeeData.date).toISOString(),
-      Shift: employeeData.shift
+      Shift: employeeData.shift,
+      Work_Order_Suggestions: workOrderSuggestions,
+      Equipment_Intelligence: equipmentSuggestions
     };
     
     onSubmit(data);
@@ -209,7 +269,7 @@ export const ViolationForm = ({ onSubmit, isLoading }: ViolationFormProps) => {
                       <SelectContent>
                         {violationTypes.map((vt) => (
                           <SelectItem key={vt.type} value={vt.type}>
-                            {vt.type} ({(vt.percent * 100).toFixed(1)}%)
+                            {vt.type} ({vt.code}) - Severity: {(vt.severity * 100).toFixed(0)}%
                           </SelectItem>
                         ))}
                       </SelectContent>
